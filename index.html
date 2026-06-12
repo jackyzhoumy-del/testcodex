@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>智能电表 - Smart Meter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { font-size: 16px; }
+body {
+  font-family: 'Inter', -apple-system, sans-serif;
+  background: #0b0e14;
+  color: #e2e8f0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.header {
+  background: #0f131a;
+  border-bottom: 1px solid #1e293b;
+  padding: 0 1.5rem;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.header-left { display: flex; align-items: center; gap: 0.75rem; }
+.header-left .logo {
+  width: 32px; height: 32px;
+  background: #2dd4bf; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem; font-weight: 700; color: #0b0e14;
+}
+.header-left h1 { font-size: 1rem; font-weight: 600; color: #f1f5f9; }
+.header-left .badge {
+  font-size: 0.7rem; padding: 2px 8px;
+  background: #1e293b; border-radius: 999px;
+  color: #94a3b8; font-weight: 500;
+}
+.header-right { display: flex; align-items: center; gap: 1rem; }
+.header-right .status {
+  display: flex; align-items: center; gap: 0.4rem;
+  font-size: 0.78rem; color: #94a3b8;
+}
+.status-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,.5);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+.status-dot.offline { background: #ef4444; box-shadow: 0 0 6px rgba(239,68,68,.5); }
+@keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.4} }
+.meter-id { font-size: 0.75rem; font-family: 'JetBrains Mono', monospace; color: #475569; background: #1e293b; padding: 2px 10px; border-radius: 4px; }
+
+/* Main */
+.main { flex: 1; padding: 1.5rem; max-width: 1200px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 1.25rem; }
+
+/* Top metrics row */
+.metrics-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; }
+.metric-card {
+  background: #111821; border: 1px solid #1e293b; border-radius: 10px;
+  padding: 1rem 1.1rem; position: relative; overflow: hidden;
+}
+.metric-card .label { font-size: 0.72rem; font-weight: 500; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.25rem; display: flex; align-items: center; gap: 0.35rem; }
+.metric-card .label svg { width: 14px; height: 14px; stroke: #64748b; }
+.metric-card .value { font-family: 'JetBrains Mono', monospace; font-size: 1.6rem; font-weight: 700; color: #f1f5f9; line-height: 1.2; }
+.metric-card .unit { font-size: 0.78rem; color: #64748b; font-weight: 400; margin-left: 0.2rem; }
+.metric-card .sub { font-size: 0.72rem; color: #475569; margin-top: 0.25rem; }
+.metric-card .trend { display: inline-flex; align-items: center; gap: 2px; font-size: 0.7rem; font-weight: 600; margin-left: 0.5rem; }
+.trend.up { color: #22c55e; } .trend.down { color: #ef4444; }
+.metric-card.accent { border-color: #2dd4bf33; }
+.metric-card.accent .value { color: #2dd4bf; }
+/* Mini sparkline inside metric cards */
+.metric-card .spark-wrap { position: absolute; right: 0; bottom: 0; width: 50%; height: 100%; opacity: 0.12; pointer-events: none; }
+.metric-card .spark-wrap canvas { width: 100%; height: 100%; }
+
+/* Middle section: gauge + chart */
+.middle-row { display: grid; grid-template-columns: 1fr 2fr; gap: 0.75rem; }
+.gauge-card {
+  background: #111821; border: 1px solid #1e293b; border-radius: 10px;
+  padding: 1.2rem; display: flex; flex-direction: column; align-items: center;
+}
+.gauge-card .gauge-title { font-size: 0.72rem; font-weight: 500; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.75rem; }
+.gauge-wrap { position: relative; width: 180px; height: 100px; }
+.gauge-wrap canvas { width: 100%; height: 100%; }
+.gauge-center {
+  position: absolute; top: 28px; left: 50%; transform: translateX(-50%);
+  text-align: center;
+}
+.gauge-center .gv { font-family: 'JetBrains Mono', monospace; font-size: 1.8rem; font-weight: 700; color: #f1f5f9; }
+.gauge-center .gu { font-size: 0.72rem; color: #64748b; margin-top: -2px; }
+
+.chart-card {
+  background: #111821; border: 1px solid #1e293b; border-radius: 10px;
+  padding: 1.2rem;
+}
+.chart-card .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; }
+.chart-card .chart-title { font-size: 0.72rem; font-weight: 500; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; }
+.chart-card .chart-controls { display: flex; gap: 0.25rem; }
+.chart-card .chart-controls button {
+  background: none; border: 1px solid transparent; color: #64748b;
+  font-size: 0.68rem; font-family: 'Inter', sans-serif; font-weight: 500;
+  padding: 2px 8px; border-radius: 4px; cursor: pointer;
+}
+.chart-card .chart-controls button:hover { color: #94a3b8; border-color: #1e293b; }
+.chart-card .chart-controls button.active { color: #2dd4bf; border-color: #2dd4bf33; background: #2dd4bf08; }
+.chart-wrap { width: 100%; height: 150px; }
+.chart-wrap canvas { width: 100%; height: 100%; }
+
+/* Bottom table */
+.table-card {
+  background: #111821; border: 1px solid #1e293b; border-radius: 10px;
+  padding: 1rem 1.2rem;
+}
+.table-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; }
+.table-title { font-size: 0.72rem; font-weight: 500; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+thead th {
+  text-align: left; padding: 0.45rem 0.75rem; font-weight: 500; color: #475569;
+  border-bottom: 1px solid #1e293b; white-space: nowrap;
+}
+tbody td { padding: 0.45rem 0.75rem; border-bottom: 1px solid #0f131a; color: #cbd5e1; white-space: nowrap; }
+tbody tr:hover td { background: #0f131a80; }
+td.mono { font-family: 'JetBrains Mono', monospace; }
+td .tag {
+  display: inline-block; padding: 1px 8px; border-radius: 999px;
+  font-size: 0.68rem; font-weight: 500;
+}
+.tag.normal { background: #22c55e18; color: #22c55e; }
+.tag.warn { background: #f59e0b18; color: #f59e0b; }
+.tag.danger { background: #ef444418; color: #ef4444; }
+
+/* Responsive */
+@media (max-width: 800px) {
+  .metrics-row { grid-template-columns: repeat(2, 1fr); }
+  .middle-row { grid-template-columns: 1fr; }
+  .main { padding: 1rem; }
+  .metric-card .value { font-size: 1.3rem; }
+}
+@media (max-width: 480px) {
+  .metrics-row { grid-template-columns: 1fr; }
+  .header { padding: 0 1rem; }
+  .meter-id { display: none; }
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-left">
+    <div class="logo">⚡</div>
+    <h1>智能电表</h1>
+    <span class="badge">Smart Meter</span>
+  </div>
+  <div class="header-right">
+    <span class="meter-id">SM-2024-8712</span>
+    <div class="status">
+      <span class="status-dot" id="statusDot"></span>
+      <span id="statusText">在线</span>
+    </div>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- Metrics Row -->
+  <div class="metrics-row">
+    <div class="metric-card accent">
+      <div class="label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>实时功率</div>
+      <div class="value"><span id="powerVal">0.00</span><span class="unit">kW</span></div>
+      <div class="sub" id="powerSub">—</div>
+      <div class="spark-wrap"><canvas id="sparkPower"></canvas></div>
+    </div>
+    <div class="metric-card">
+      <div class="label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>总用电量</div>
+      <div class="value"><span id="energyVal">0.0</span><span class="unit">kWh</span></div>
+      <div class="sub">今日 <span id="energyToday">0.0</span> kWh</div>
+    </div>
+    <div class="metric-card">
+      <div class="label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>电压</div>
+      <div class="value"><span id="voltageVal">0.0</span><span class="unit">V</span></div>
+      <div class="sub" id="voltageSub">—</div>
+    </div>
+    <div class="metric-card">
+      <div class="label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M5 9v6"/><path d="M19 9v6"/><path d="M2 12h20"/></svg>电流</div>
+      <div class="value"><span id="currentVal">0.00</span><span class="unit">A</span></div>
+      <div class="sub" id="currentSub">—</div>
+    </div>
+  </div>
+
+  <!-- Middle: Gauge + Chart -->
+  <div class="middle-row">
+    <div class="gauge-card">
+      <div class="gauge-title">负载率</div>
+      <div class="gauge-wrap">
+        <canvas id="gaugeCanvas"></canvas>
+        <div class="gauge-center">
+          <div class="gv" id="gaugePct">0</div>
+          <div class="gu">%</div>
+        </div>
+      </div>
+      <div style="font-size:0.72rem;color:#475569;margin-top:0.25rem;">额定 15 kW</div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header">
+        <span class="chart-title">功率趋势</span>
+        <div class="chart-controls">
+          <button data-range="5m" class="active">5分</button>
+          <button data-range="15m">15分</button>
+          <button data-range="1h">1小时</button>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Events Table -->
+  <div class="table-card">
+    <div class="table-header">
+      <span class="table-title">最近事件</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>时间</th>
+            <th>事件</th>
+            <th>数值</th>
+            <th>状态</th>
+          </tr>
+        </thead>
+        <tbody id="eventsBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── State ──
+const state = {
+  power: 2.4,            // current kW
+  energy: 2847.6,        // total kWh
+  energyToday: 11.3,     // today kWh
+  voltage: 221.7,        // V
+  current: 10.82,        // A
+  powerFactor: 0.95,
+  frequency: 50.02,      // Hz
+  loadPercent: 16,       // %
+  history: [],           // {time, power}
+  timeRange: '5m',       // '5m' | '15m' | '1h'
+  online: true,
+};
+
+const MAX_HISTORY = 360;
+const eventTypes = [
+  { t: '电压波动', getVal: () => (220 + (Math.random()-0.5)*6).toFixed(1)+' V', tag: 'warn' },
+  { t: '功率峰值', getVal: () => (4 + Math.random()*3).toFixed(2)+' kW', tag: 'danger' },
+  { t: '谐波异常', getVal: () => 'THD '+(3+Math.random()*4).toFixed(1)+'%', tag: 'warn' },
+  { t: '通讯恢复', getVal: () => 'RS-485 正常', tag: 'normal' },
+];
+
+// ── DOM refs ──
+const $ = id => document.getElementById(id);
+const powerVal = $('powerVal'), powerSub = $('powerSub');
+const energyVal = $('energyVal'), energyToday = $('energyToday');
+const voltageVal = $('voltageVal'), voltageSub = $('voltageSub');
+const currentVal = $('currentVal'), currentSub = $('currentSub');
+const gaugePct = $('gaugePct');
+const statusDot = $('statusDot'), statusText = $('statusText');
+const eventsBody = $('eventsBody');
+
+// ── Sparkline ──
+function drawSpark(canvasId, data, color) {
+  const c = document.getElementById(canvasId);
+  if (!c) return;
+  const rect = c.parentElement.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const w = rect.width, h = rect.height;
+  c.width = w * dpr; c.height = h * dpr;
+  c.style.width = w+'px'; c.style.height = h+'px';
+  const ctx = c.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0,0,w,h);
+  if (data.length < 2) return;
+  const min = Math.min(...data), max = Math.max(...data);
+  const range = max - min || 1;
+  const pad = 4;
+  const step = (w - pad*2) / (data.length - 1);
+  ctx.beginPath();
+  ctx.strokeStyle = color; ctx.lineWidth = 1.5;
+  data.forEach((v,i) => {
+    const x = pad + i * step;
+    const y = h - pad - ((v - min) / range) * (h - pad*2);
+    i === 0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+}
+
+// ── Gauge ──
+function drawGauge(pct) {
+  const c = $('gaugeCanvas');
+  const rect = c.parentElement.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const w = rect.width, h = rect.height;
+  c.width = w * dpr; c.height = h * dpr;
+  c.style.width = w+'px'; c.style.height = h+'px';
+  const ctx = c.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0,0,w,h);
+
+  const cx = w/2, cy = h * 0.85;
+  const r = Math.min(w * 0.42, h * 0.6);
+  const startAngle = Math.PI * 0.75;
+  const endAngle = Math.PI * 2.25;
+  const range = endAngle - startAngle;
+  const valAngle = startAngle + range * Math.min(pct / 100, 1);
+
+  // Track
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, startAngle, endAngle);
+  ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 8; ctx.lineCap = 'round';
+  ctx.stroke();
+
+  // Value arc
+  const colors = ['#22c55e','#f59e0b','#ef4444'];
+  const stops = [0.5, 0.8];
+  let grad;
+  if (pct / 100 <= stops[0]) {
+    grad = colors[0];
+  } else if (pct / 100 <= stops[1]) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, startAngle, startAngle + range * stops[0]);
+    ctx.strokeStyle = colors[0]; ctx.lineWidth = 8; ctx.lineCap = 'butt';
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, startAngle + range * stops[0], valAngle);
+    ctx.strokeStyle = colors[1]; ctx.lineWidth = 8; ctx.lineCap = 'round';
+    ctx.stroke();
+    grad = colors[1];
+  } else {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, startAngle, startAngle + range * stops[0]);
+    ctx.strokeStyle = colors[0]; ctx.lineWidth = 8; ctx.lineCap = 'butt';
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, startAngle + range * stops[0], startAngle + range * stops[1]);
+    ctx.strokeStyle = colors[1]; ctx.lineWidth = 8; ctx.lineCap = 'butt';
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, startAngle + range * stops[1], valAngle);
+    ctx.strokeStyle = colors[2]; ctx.lineWidth = 8; ctx.lineCap = 'round';
+    ctx.stroke();
+    grad = colors[2];
+  }
+}
+
+// ── Trend chart ──
+function drawTrend() {
+  const c = $('trendChart');
+  const rect = c.parentElement.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const w = rect.width, h = rect.height;
+  c.width = w * dpr; c.height = h * dpr;
+  c.style.width = w+'px'; c.style.height = h+'px';
+  const ctx = c.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0,0,w,h);
+
+  const data = state.history;
+  if (data.length < 2) {
+    ctx.fillStyle = '#475569'; ctx.font = '13px Inter, sans-serif';
+    ctx.textAlign = 'center'; ctx.fillText('等待数据…', w/2, h/2+4);
+    return;
+  }
+
+  const pad = { top: 8, bottom: 16, left: 44, right: 12 };
+  const pw = w - pad.left - pad.right;
+  const ph = h - pad.top - pad.bottom;
+
+  // Y axis
+  const vals = data.map(d => d.power);
+  const min = 0;
+  const max = Math.ceil(Math.max(...vals) * 1.15);
+  const yTicks = 4;
+  ctx.fillStyle = '#475569'; ctx.font = `${10/dpr}px JetBrains Mono, monospace`;
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  for (let i = 0; i <= yTicks; i++) {
+    const v = min + (max - min) * (i / yTicks);
+    const y = pad.top + ph - (i / yTicks) * ph;
+    ctx.fillText(v.toFixed(1), pad.left - 6, y);
+    ctx.beginPath(); ctx.moveTo(pad.left - 2, y);
+    ctx.lineTo(pad.left, y);
+    ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 1;
+    ctx.stroke();
+    // Grid
+    ctx.beginPath(); ctx.moveTo(pad.left, y);
+    ctx.lineTo(pad.left + pw, y);
+    ctx.strokeStyle = '#0f131a'; ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  // Area fill
+  ctx.beginPath();
+  ctx.moveTo(pad.left, pad.top + ph);
+  data.forEach((d,i) => {
+    const x = pad.left + (i / (data.length-1)) * pw;
+    const y = pad.top + ph - ((d.power - min) / (max - min)) * ph;
+    ctx.lineTo(x, y);
+  });
+  ctx.lineTo(pad.left + pw, pad.top + ph);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top+ph);
+  grad.addColorStop(0, '#2dd4bf33');
+  grad.addColorStop(1, '#2dd4bf05');
+  ctx.fillStyle = grad; ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  data.forEach((d,i) => {
+    const x = pad.left + (i / (data.length-1)) * pw;
+    const y = pad.top + ph - ((d.power - min) / (max - min)) * ph;
+    i === 0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  });
+  ctx.strokeStyle = '#2dd4bf'; ctx.lineWidth = 2; ctx.stroke();
+
+  // X axis labels (time)
+  ctx.fillStyle = '#475569'; ctx.font = `${10/dpr}px JetBrains Mono, monospace`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  const labelCount = Math.min(5, data.length);
+  for (let i = 0; i < labelCount; i++) {
+    const idx = Math.round((data.length-1) * (i / (labelCount-1)));
+    const x = pad.left + (idx / (data.length-1)) * pw;
+    const t = data[idx].time;
+    ctx.fillText(t, x, pad.top + ph + 4);
+  }
+}
+
+// ── Add event row ──
+function addEvent(time, evt, val, tag) {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td class="mono">${time}</td><td>${evt}</td><td class="mono">${val}</td><td><span class="tag ${tag}">${tag === 'normal' ? '正常' : tag === 'warn' ? '警告' : '危险'}</span></td>`;
+  eventsBody.prepend(tr);
+  while (eventsBody.children.length > 20) eventsBody.removeChild(eventsBody.lastChild);
+}
+
+function maybeGenerateEvent() {
+  if (Math.random() > 0.04) return;
+  const evt = eventTypes[Math.floor(Math.random() * eventTypes.length)];
+  const now = new Date();
+  const time = now.toLocaleTimeString('zh-CN', {hour12:false});
+  addEvent(time, evt.t, evt.getVal(), evt.tag);
+}
+
+// ── Update loop ──
+function updateMeter() {
+  // Jitter power with random walk
+  const delta = (Math.random() - 0.48) * 0.35;
+  state.power = Math.max(0.1, state.power + delta);
+
+  // Derived values
+  const pf = 0.92 + Math.random() * 0.06;
+  state.voltage = 218 + Math.random() * 5;
+  state.current = (state.power * 1000) / (state.voltage * pf);
+  state.loadPercent = (state.power / 15) * 100;
+  state.energy += (state.power / 3600) * 2; // ~ per tick
+  state.energyToday += (state.power / 3600) * 2;
+
+  // Update DOM
+  powerVal.textContent = state.power.toFixed(2);
+  powerSub.textContent = `${pf.toFixed(2)} PF · ${(state.frequency + (Math.random()-0.5)*0.05).toFixed(2)} Hz`;
+  energyVal.textContent = state.energy.toFixed(1);
+  energyToday.textContent = state.energyToday.toFixed(2);
+  voltageVal.textContent = state.voltage.toFixed(1);
+  voltageSub.textContent = `${(state.voltage * state.current / 1000).toFixed(2)} kVA`;
+  currentVal.textContent = state.current.toFixed(2);
+  currentSub.textContent = `${pf.toFixed(2)} PF`;
+  gaugePct.textContent = Math.round(state.loadPercent);
+
+  // Online simulation (rare dropout)
+  if (Math.random() < 0.003) {
+    state.online = !state.online;
+    statusDot.className = 'status-dot' + (state.online ? '' : ' offline');
+    statusText.textContent = state.online ? '在线' : '离线';
+    const now = new Date();
+    addEvent(now.toLocaleTimeString('zh-CN',{hour12:false}),
+      state.online ? '通讯恢复' : '通讯中断',
+      state.online ? 'RS-485 正常' : '无应答',
+      state.online ? 'normal' : 'danger');
+  }
+
+  // History
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('zh-CN',{hour12:false});
+  state.history.push({ time: timeStr, power: state.power });
+
+  // Trim history by time range
+  const rangeSecs = { '5m': 300, '15m': 900, '1h': 3600 }[state.timeRange] || 300;
+  // keep 2s intervals -> ~rangeSecs/2 points
+  const maxPts = Math.ceil(rangeSecs / 2) + 10;
+  if (state.history.length > maxPts) {
+    state.history = state.history.slice(-maxPts);
+  }
+
+  // Only show points within range
+  const cutoff = Date.now() - rangeSecs * 1000;
+  const visible = state.history.filter(d => {
+    // approximate via index since we don't store ms
+    return true; // trim by length above is fine
+  });
+
+  // Draw
+  drawSpark('sparkPower', state.history.slice(-60).map(d => d.power), '#2dd4bf');
+  drawGauge(state.loadPercent);
+  drawTrend();
+  maybeGenerateEvent();
+}
+
+// ── Time range switching ──
+document.querySelectorAll('[data-range]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-range]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.timeRange = btn.dataset.range;
+  });
+});
+
+// ── Init events ──
+function initEvents() {
+  const base = new Date();
+  const sampleEvents = [
+    { min: -80, evt: '电压波动', val: '223.5 V', tag: 'warn' },
+    { min: -160, evt: '功率峰值', val: '5.82 kW', tag: 'danger' },
+    { min: -300, evt: '谐波异常', val: 'THD 5.3%', tag: 'warn' },
+    { min: -600, evt: '通讯恢复', val: 'RS-485 正常', tag: 'normal' },
+    { min: -1200, evt: '正常抄表', val: '2.41 kW', tag: 'normal' },
+  ];
+  sampleEvents.forEach(e => {
+    const d = new Date(base.getTime() + e.min * 1000);
+    addEvent(d.toLocaleTimeString('zh-CN',{hour12:false}), e.evt, e.val, e.tag);
+  });
+  // Fill initial history
+  for (let i = 150; i >= 0; i--) {
+    const d = new Date(base.getTime() - i * 2000);
+    const ts = d.toLocaleTimeString('zh-CN',{hour12:false});
+    const p = 2.0 + Math.sin(i * 0.08) * 0.8 + Math.random() * 0.4;
+    state.history.push({ time: ts, power: p });
+  }
+  state.power = state.history[state.history.length-1].power;
+}
+
+// ── Resize ──
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    drawSpark('sparkPower', state.history.slice(-60).map(d => d.power), '#2dd4bf');
+    drawGauge(state.loadPercent);
+    drawTrend();
+  }, 100);
+});
+
+// ── Start ──
+initEvents();
+updateMeter();
+setInterval(updateMeter, 2000);
+</script>
+</body>
+</html>
